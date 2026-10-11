@@ -57,11 +57,7 @@ jobs:
         run: xvfb-run -a release/linux-unpacked/storyboard --no-sandbox --smoke-test
       - name: Smoke test Windows executable
         if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $process = Start-Process -FilePath 'release/win-unpacked/Storyboard.exe' -ArgumentList '--smoke-test' -PassThru
-          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Desktop smoke test timed out' }
-          if ($process.ExitCode -ne 0) { throw "Desktop smoke test failed: $($process.ExitCode)" }
+        run: node scripts/smoke.mjs release/win-unpacked/Storyboard.exe
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.platform }}

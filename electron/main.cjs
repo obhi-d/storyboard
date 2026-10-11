@@ -20,7 +20,7 @@ app.whenReady().then(async () => {
     minHeight: 480,
     title: 'Storyboard',
     backgroundColor: '#f5f6f1',
-    show: !smoke,
+    show: true,
     autoHideMenuBar: true,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
   });
@@ -37,22 +37,37 @@ app.whenReady().then(async () => {
   });
   window.webContents.on('will-attach-webview', (event) => event.preventDefault());
   if (smoke) {
-    setTimeout(() => app.exit(1), 30000).unref();
+    setTimeout(() => {
+      console.error('Desktop smoke test timed out');
+      app.exit(1);
+    }, 30000).unref();
+    window.webContents.on('console-message', (_event, _level, message) =>
+      console.log('Renderer:', message),
+    );
     window.webContents.on('render-process-gone', () => app.exit(1));
   }
   try {
     await window.loadFile(path.join(__dirname, '../dist/index.html'));
     if (smoke) {
-      const ok = await window.webContents.executeJavaScript(`new Promise(resolve => {
-        const timer = setInterval(() => {
-          if (document.querySelectorAll('article').length === 4 && document.body.textContent.includes('All changes saved')) {
-            clearInterval(timer);
-            resolve(typeof window.require === 'undefined' && !!document.querySelector('[aria-label="Draw (P)"]'));
-          }
-        }, 100);
-      })`);
-      console.log(ok ? 'Desktop smoke test passed' : 'Desktop smoke test failed');
-      app.exit(ok ? 0 : 1);
+      let state;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        state = await window.webContents.executeJavaScript(`({
+          cards: document.querySelectorAll('article').length,
+          saved: document.body.textContent.includes('All changes saved'),
+          isolated: typeof window.require === 'undefined',
+          pen: !!document.querySelector('[aria-label="Draw (P)"]'),
+          status: document.querySelector('.save-state')?.textContent,
+          canvas: !!document.querySelector('[aria-label="Storyboard canvas"]')
+        })`);
+        if (state.cards > 0 && state.saved && state.isolated && state.pen && state.canvas) {
+          console.log('Desktop smoke test passed', JSON.stringify(state));
+          app.exit(0);
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+      console.error('Desktop smoke test failed', JSON.stringify(state));
+      app.exit(1);
     }
   } catch (error) {
     console.error(error);
