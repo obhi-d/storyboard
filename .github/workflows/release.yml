@@ -1,0 +1,102 @@
+name: Desktop release
+run-name: Release ${{ inputs.tag }}
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag (must match package.json)
+        required: true
+        default: v1.0.0
+permissions:
+  contents: read
+concurrency:
+  group: desktop-release
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: node -e "if (process.env.RELEASE_TAG !== 'v' + require('./package.json').version) process.exit(1)"
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run build
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+  package:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+          - os: windows-latest
+            platform: win
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:package -- --${{ matrix.platform }} --x64
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - name: Smoke test Linux executable
+        if: runner.os == 'Linux'
+        run: xvfb-run -a release/linux-unpacked/storyboard --no-sandbox --smoke-test
+      - name: Smoke test Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath 'release/win-unpacked/Storyboard.exe' -ArgumentList '--smoke-test' -PassThru
+          if (-not $process.WaitForExit(60000)) { $process.Kill(); throw 'Desktop smoke test timed out' }
+          if ($process.ExitCode -ne 0) { throw "Desktop smoke test failed: $($process.ExitCode)" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            release/*.AppImage
+            release/*.tar.gz
+            release/*.exe
+  publish:
+    needs: [verify, package]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: desktop-*
+          path: release
+          merge-multiple: true
+      - name: Validate artifacts and publish complete release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${RELEASE_TAG#v}"
+          test -s "release/Storyboard-${version}-linux-x86_64.AppImage"
+          test -s "release/Storyboard-${version}-linux-x64.tar.gz"
+          test -s "release/Storyboard-${version}-win-x64.exe"
+          (cd release && sha256sum *.AppImage *.tar.gz *.exe > SHA256SUMS.txt)
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'Release already exists; refusing to replace it.' >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" release/*.AppImage release/*.tar.gz release/*.exe release/SHA256SUMS.txt --target "$GITHUB_SHA" --title "Storyboard ${RELEASE_TAG}" --notes-file RELEASE_NOTES.md --draft
+          gh release edit "$RELEASE_TAG" --draft=false --latest

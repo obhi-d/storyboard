@@ -11,3 +11,5 @@ test-results/
 .DS_Store
 .idea/
 .vscode/
+
+release/

@@ -1,0 +1,28 @@
+appId: io.github.obhi-d.storyboard
+productName: Storyboard
+copyright: Copyright © 2026 Storyboard contributors
+asar: true
+npmRebuild: false
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - LICENSE
+artifactName: Storyboard-${version}-${os}-${arch}.${ext}
+linux:
+  executableName: storyboard
+  category: Graphics
+  icon: assets/icon.png
+  target:
+    - target: AppImage
+      arch: [x64]
+    - target: tar.gz
+      arch: [x64]
+win:
+  icon: assets/icon.ico
+  target:
+    - target: portable
+      arch: [x64]
+  signAndEditExecutable: false

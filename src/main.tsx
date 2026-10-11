@@ -46,6 +46,11 @@ import {
   parseBoard,
 } from './model';
 import { readBoard, saveBoard } from './storage';
+import '@fontsource/dm-sans/400.css';
+import '@fontsource/dm-sans/500.css';
+import '@fontsource/dm-sans/600.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/800.css';
 import './style.css';
 const Markdown = memo(({ text }: { text: string }) => (
   <div
@@ -612,7 +617,7 @@ function App() {
   return (
     <div className="app">
       <header>
-        <a className="brand" href="/" aria-label="Storyboard home">
+        <a className="brand" href="#" aria-label="Storyboard home">
           <span className="brand-icon">
             <LayoutDashboard size={20} />
           </span>

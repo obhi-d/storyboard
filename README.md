@@ -4,6 +4,20 @@ A quiet space for big ideas. A local-first, infinite canvas for arranging images
 
 ![Storyboard canvas with connected Markdown cards](docs/screenshot.png)
 
+## Desktop downloads and releases
+
+Download Windows x64 (`.exe`) and Linux x64 (`.AppImage` or `.tar.gz`) builds from [GitHub Releases](https://github.com/obhi-d/storyboard/releases). Windows builds are portable and unsigned. Desktop storage is separate from browser storage; transfer boards using export/import.
+
+```sh
+npm run desktop                 # Build and launch Electron locally
+npm run desktop:package         # Package for your current OS into release/
+npm run release -- v1.0.0        # Dispatch the release workflow (requires gh auth login)
+```
+
+The release script runs the workflow on `main`; commit and push changes first. The tag must match the version in `package.json`. CI runs tests, builds on native Linux and Windows runners, and smoke-tests both packaged executables. Only after both platforms succeed does it create and publish a release containing all three downloads and SHA-256 checksums. If either platform fails, no release is created. Existing releases are never overwritten. A failed upload can leave an unpublished draft for inspection. See `.github/workflows/release.yml` and `RELEASE_NOTES.md`.
+
+The Electron renderer is sandboxed with Node integration disabled. External HTTP(S) links open in the system browser. No code-signing certificate or automatic updater is configured. Linux AppImages require FUSE or `--appimage-extract-and-run`; the tarball is an alternative. The application requires a graphical desktop.
+
 ## Run locally
 
 Requires Node.js 22.12 or newer and npm.
@@ -43,7 +57,7 @@ Press `?` for shortcuts. The initial board is an editable starter, not a separat
 
 The current board autosaves to IndexedDB after a short debounce. The save indicator reports completion or failure. This is a single-board application; export to keep multiple projects. Clearing site data or switching browsers/origins does not preserve your local board. Export before doing so. History and viewport position are session-only.
 
-Board content and images are not sent to a server. The UI uses system font fallbacks; optional Google Fonts load when online. Markdown is sanitized with DOMPurify; embedded Markdown images are disabled to avoid remote image requests. Imported image cards accept embedded raster data only, and imported structures, IDs, geometry, and connections are validated. Imports are limited to 100 MB, 10,000 cards, and 30,000 connections. These are validation limits, not performance guarantees.
+Board content and images are not sent to a server. Fonts are bundled locally; the desktop app works offline. Markdown is sanitized with DOMPurify; embedded Markdown images are disabled to avoid remote image requests. Imported image cards accept embedded raster data only, and imported structures, IDs, geometry, and connections are validated. Imports are limited to 100 MB, 10,000 cards, and 30,000 connections. These are validation limits, not performance guarantees.
 
 ## Architecture and performance
 
